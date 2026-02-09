@@ -1,72 +1,89 @@
+import requests
 import time
-import random
 import datetime
-import os
+import sys
 from pymongo import MongoClient
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 # --- CONFIGURATION ---
-# Set to TRUE to use fake data (Instant start). 
-# Set to FALSE later when you have Reddit keys.
-SIMULATION_MODE = True 
+FINNHUB_KEY = "d64ui9pr01qqbln57gt0d64ui9pr01qqbln57gtg"
 
-# Database Setup
-client = MongoClient("mongodb://localhost:27017/")
-db = client.stock_sentiment_db
-collection = db.posts
+# The stocks you want to monitor
+STOCKS = ["AAPL", "TSLA", "NVDA", "BTC", "AMZN", "MSFT"]
 
-# AI Setup
+# 1. MongoDB Connection
+try:
+    client = MongoClient("mongodb://localhost:27017/")
+    db = client.stock_sentiment_db
+    collection = db.posts
+    # Test connection
+    client.admin.command('ping')
+    print("✅ Successfully connected to MongoDB")
+except Exception as e:
+    print(f"❌ Could not connect to MongoDB: {e}")
+    sys.exit(1)
+
+# 2. AI Sentiment Engine Setup
 analyzer = SentimentIntensityAnalyzer()
 
-# Simulation Tools (Fake tweets for testing)
-fake_templates = [
-    "I love {stock}, it's going to the moon! 🚀", 
-    "{stock} is a disaster, selling everything.", 
-    "Just bought more {stock}, holding forever.",
-    "Why is {stock} dropping? Panic!",
-    "{stock} earnings looking strong."
-]
-target_stocks = ["AAPL", "TSLA", "BTC", "NVDA"]
-
-def get_real_reddit_data():
-    # We will fill this in Phase 4!
-    pass
-
-def generate_fake_data():
-    stock = random.choice(target_stocks)
-    text = random.choice(fake_templates).format(stock=stock)
-    return stock, text
-
-print("--- Scraper Started ---")
-print(f"Mode: {'SIMULATION' if SIMULATION_MODE else 'REAL REDDIT'}")
-
-while True:
+def fetch_and_analyze():
+    """Fetches general market news and filters for our target stocks."""
+    print(f"\n--- 📡 Fetching News: {datetime.datetime.now().strftime('%H:%M:%S')} ---")
+    
+    # Finnhub 'general' news category provides the latest market headlines
+    url = f"https://finnhub.io/api/v1/news?category=general&token={FINNHUB_KEY}"
+    
     try:
-        if SIMULATION_MODE:
-            symbol, text = generate_fake_data()
+        response = requests.get(url)
+        response.raise_for_status() # Check for HTTP errors
+        news_list = response.json()
+        
+        saved_count = 0
+
+        # We look through the latest news items
+        for item in news_list:
+            headline = item.get('headline', '')
+            
+            # Identify which of our target stocks are mentioned in the headline
+            for symbol in STOCKS:
+                if symbol in headline.upper():
+                    
+                    # A. AI Sentiment Analysis
+                    # VADER returns a 'compound' score from -1 (Negative) to +1 (Positive)
+                    scores = analyzer.polarity_scores(headline)
+                    compound_score = scores['compound']
+                    
+                    # B. Prepare the MongoDB Document
+                    doc = {
+                        "symbol": symbol,
+                        "text": headline,
+                        "sentiment": compound_score,
+                        "timestamp": datetime.datetime.utcnow(),
+                        "source": item.get('source', 'Finnhub'),
+                        "url": item.get('url', '')
+                    }
+                    
+                    # C. Save to MongoDB (Preventing duplicates by checking headline)
+                    if not collection.find_one({"text": headline}):
+                        collection.insert_one(doc)
+                        saved_count += 1
+                        print(f"   ✨ Saved [{symbol}]: {headline[:60]}... (Score: {compound_score})")
+
+        if saved_count == 0:
+            print("   💤 No new relevant headlines found in this batch.")
         else:
-            # Placeholder for real logic later
-            symbol, text = generate_fake_data()
-
-        # 1. Analyze Sentiment (-1.0 to +1.0)
-        scores = analyzer.polarity_scores(text)
-        compound_score = scores['compound']
-
-        # 2. Create the Document
-        post_doc = {
-            "symbol": symbol,
-            "text": text,
-            "sentiment": compound_score,
-            "timestamp": datetime.datetime.utcnow()
-        }
-
-        # 3. Save to MongoDB
-        collection.insert_one(post_doc)
-        print(f"[{symbol}] Score: {compound_score} | Saved: {text}")
-
-        # Sleep to simulate real-time traffic (2 seconds)
-        time.sleep(2)
+            print(f"   💾 Added {saved_count} new analysis records to MongoDB.")
 
     except Exception as e:
-        print(f"Error: {e}")
-        time.sleep(5)
+        print(f"❌ Error during fetch: {e}")
+
+# --- MAIN LOOP ---
+if __name__ == "__main__":
+    print(f"🚀 Scraper started! Monitoring: {', '.join(STOCKS)}")
+    print("Press Ctrl+C to stop.")
+    
+    while True:
+        fetch_and_analyze()
+        # Finnhub free tier update frequency is good at 2-5 minutes
+        print("\n😴 Sleeping for 2 minutes...")
+        time.sleep(120)
