@@ -9,7 +9,7 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 FINNHUB_KEY = "d64ui9pr01qqbln57gt0d64ui9pr01qqbln57gtg"
 
 # The stocks you want to monitor
-STOCKS = ["AAPL", "TSLA", "NVDA", "BTC", "AMZN", "MSFT"]
+STOCKS = ["AAPL", "TSLA", "MARKET", "STOCK", "US"]
 
 # 1. MongoDB Connection
 try:
