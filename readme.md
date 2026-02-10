@@ -1,8 +1,16 @@
-The Concept: A system that scrapes Twitter/X or Reddit (r/wallstreetbets) for mentions of specific stocks, analyzes the sentiment (Positive/Negative) using Python AI libraries, and correlates it with live stock prices.
+# AI-Powered Stock Sentiment Analyzer
 
-Key Features:
-  Ingestion Engine: A Python script running in the background listening to live tweets.
-  NLP Processor: Uses a library like VADER to score sentiment (-1 to +1).
-  TimeSeries Collections: MongoDB has dedicated Time Series collections optimized for storing financial data efficiently.
+A real-time data pipeline that monitors financial news, performs NLP-based sentiment analysis, and serves market "verdicts" via a REST API.
 
-Tech Stack: FastAPI, Motor (Async Mongo driver), TextBlob (NLP), yfinance.
+## 🛠️ Tech Stack
+- **Python**: Core logic and data processing.
+- **FastAPI**: High-performance API framework.
+- **MongoDB**: Document store for high-velocity news data.
+- **VADER Sentiment**: Lexicon and rule-based sentiment analysis tool.
+- **Finnhub API**: Real-time financial news source.
+
+## 🚀 How it Works
+1. **Ingestion**: The `scraper.py` script polls the Finnhub API for the latest market headlines.
+2. **Analysis**: Each headline is processed by the VADER engine to calculate a sentiment score from -1.0 (Bearish) to +1.0 (Bullish).
+3. **Storage**: Processed data is stored in MongoDB with timestamps to prevent duplication.
+4. **Delivery**: The FastAPI server (`main.py`) aggregates the last 50 headlines for a specific stock to provide a real-time "Market Verdict."
