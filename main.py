@@ -1,8 +1,16 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
 from datetime import datetime
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # In production, you'd put your specific URL here
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Database Connection
 client = MongoClient("mongodb://localhost:27017/")
