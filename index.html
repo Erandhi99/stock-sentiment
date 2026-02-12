@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Stock Sentiment Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; display: flex; justify-content: center; padding: 50px; }
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 400px; text-align: center; }
+        input { padding: 10px; border: 1px solid #ddd; border-radius: 5px; width: 60%; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .result { margin-top: 30px; display: none; }
+        .verdict { font-size: 24px; font-weight: bold; margin: 10px 0; }
+        .BULLISH { color: #27ae60; }
+        .BEARISH { color: #e74c3c; }
+        .NEUTRAL { color: #f39c12; }
+        ul { text-align: left; font-size: 14px; color: #666; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Stock Sentiment</h2>
+    <input type="text" id="stockInput" placeholder="Enter Ticker (e.g. TSLA)">
+    <button onclick="getSentiment()">Analyze</button>
+
+    <div id="resultArea" class="result">
+        <div id="symbolTitle" style="font-size: 18px; color: #888;"></div>
+        <div id="verdictText" class="verdict"></div>
+        <p>Score: <span id="scoreValue"></span></p>
+        <hr>
+        <p>Latest Headlines:</p>
+        <ul id="headlinesList"></ul>
+    </div>
+</div>
+
+<script>
+    async function getSentiment() {
+        const symbol = document.getElementById('stockInput').value.toUpperCase();
+        if(!symbol) return;
+
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/analysis/${symbol}`);
+            const data = await response.json();
+
+            if(data.error) {
+                alert("No data found for this stock!");
+                return;
+            }
+
+            // Update UI
+            document.getElementById('resultArea').style.display = 'block';
+            document.getElementById('symbolTitle').innerText = data.symbol;
+            document.getElementById('scoreValue').innerText = data.average_sentiment;
+            
+            const vText = document.getElementById('verdictText');
+            vText.innerText = data.verdict;
+            vText.className = 'verdict ' + data.verdict.split(' ')[0]; // Matches CSS class
+
+            // Update List
+            const list = document.getElementById('headlinesList');
+            list.innerHTML = '';
+            data.latest_posts.forEach(text => {
+                const li = document.createElement('li');
+                li.innerText = text;
+                list.appendChild(li);
+            });
+
+        } catch (err) {
+            console.error("Failed to fetch data", err);
+            alert("Backend server is not running!");
+        }
+    }
+</script>
+</body>
+</html>
